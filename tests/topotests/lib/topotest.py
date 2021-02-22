@@ -599,6 +599,13 @@ def version_cmp(v1, v2):
     return 0
 
 
+def split_daemon_name_instance(name_instance):
+    m = re.match(r"([^-]+)(-([0-9]+))?$", name_instance)
+    if not m:
+        return (name_instance, None)
+    return m.group(1, 3)
+
+
 def interface_set_status(node, ifacename, ifaceaction=False, vrf_name=None):
     if ifaceaction:
         str_ifaceaction = "no shutdown"
@@ -1093,6 +1100,8 @@ class Router(Node):
             "ripd": 0,
             "ripngd": 0,
             "ospfd": 0,
+            "ospfd-1": 0,
+            "ospfd-2": 0,
             "ospf6d": 0,
             "isisd": 0,
             "bgpd": 0,
@@ -1474,10 +1483,18 @@ class Router(Node):
             if self.daemons[daemon] == 0:
                 continue
 
-            daemon_path = os.path.join(self.daemondir, daemon)
+            (daemon_name, daemon_instance) = split_daemon_name_instance(daemon)
+            daemon_path = os.path.join(self.daemondir, daemon_name)
+            if daemon_instance:
+                instance_args = "-n " + daemon_instance
+            else:
+                instance_args = ""
             self.cmd(
-                "ASAN_OPTIONS=log_path={2}.asan {0} {1} --log file:{2}.log --log-level debug -d > {2}.out 2> {2}.err".format(
-                    daemon_path, self.daemons_options.get(daemon, ""), daemon
+                "ASAN_OPTIONS=log_path={3}.asan {0} {1} {2} --log file:{3}.log --log-level debug -d > {3}.out 2> {3}.err".format(
+                    daemon_path,
+                    self.daemons_options.get(daemon, ""),
+                    instance_args,
+                    daemon,
                 )
             )
             logger.debug("{}: {} {} started".format(self, self.routertype, daemon))
@@ -1617,11 +1634,30 @@ class Router(Node):
 
         global fatal_error
 
-        daemonsRunning = self.cmd(
-            'vtysh -c "show logging" | grep "Logging configuration for"'
-        )
+        # Determine names of running daemons, including instance suffix for
+        # multi-instance daemons
+        showLogging = self.cmd('vtysh -c "show logging"')
+        daemonsRunning = set()
+        daemon = instance = None
+        for l in showLogging.splitlines():
+            if not l.strip():
+                continue
+            if l.startswith("Logging configuration for "):
+                daemon = l.split()[-1].rstrip(":")
+                instance = None
+                continue
+            if l.startswith("Instance: "):
+                instance = l.split()[-1]
+                if daemon:
+                    daemonsRunning.add(daemon + "-" + instance)
+                continue
+            # If daemon line is not immediately followed by instance line,
+            # this is the non-instance version of the daemon
+            if daemon and not instance:
+                daemonsRunning.add(daemon)
+
         # Look for AddressSanitizer Errors in vtysh output and append to /tmp/AddressSanitzer.txt if found
-        if checkAddressSanitizerError(daemonsRunning, self.name, "vtysh"):
+        if checkAddressSanitizerError(showLogging, self.name, "vtysh"):
             return "%s: vtysh killed by AddressSanitizer" % (self.name)
 
         for daemon in self.daemons:
