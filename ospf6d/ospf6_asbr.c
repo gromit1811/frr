@@ -1398,7 +1398,7 @@ ospf6_external_aggr_match(struct ospf6 *ospf6, struct prefix *p)
 	return node->info;
 }
 
-void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
+void ospf6_asbr_redistribute_add(int type, uint32_t metric, ifindex_t ifindex,
 				 struct prefix *prefix,
 				 unsigned int nexthop_num,
 				 struct in6_addr *nexthop, route_tag_t tag,
@@ -1422,6 +1422,8 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 	memset(&troute, 0, sizeof(troute));
 	memset(&tinfo, 0, sizeof(tinfo));
+	/* By default, use redistributed metric */
+	troute.path.cost = metric;
 
 	if (IS_OSPF6_DEBUG_ASBR)
 		zlog_debug("Redistribute %pFX (%s)", prefix,
@@ -1483,7 +1485,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 			 * metric fields
 			 */
 			match->path.metric_type = metric_type(ospf6, type, 0);
-			match->path.cost = metric_value(ospf6, type, 0);
+			match->path.cost = troute.path.cost;
 			info->tag = tag;
 		}
 
@@ -1530,7 +1532,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 		 * fields
 		 */
 		route->path.metric_type = metric_type(ospf6, type, 0);
-		route->path.cost = metric_value(ospf6, type, 0);
+		route->path.cost = troute.path.cost;
 		info->tag = tag;
 	}
 
@@ -1886,7 +1888,7 @@ static void ospf6_redistribute_default_set(struct ospf6 *ospf6, int originate)
 
 		break;
 	case DEFAULT_ORIGINATE_ALWAYS:
-		ospf6_asbr_redistribute_add(DEFAULT_ROUTE, 0,
+		ospf6_asbr_redistribute_add(DEFAULT_ROUTE, DEFAULT_DEFAULT_METRIC, 0,
 					    (struct prefix *)&p, 0, &nexthop, 0,
 					    ospf6);
 		break;
