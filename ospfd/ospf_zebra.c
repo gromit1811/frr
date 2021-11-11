@@ -973,7 +973,7 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 		ospf->redistribute++;
 		ospf_external_add(ospf, DEFAULT_ROUTE, 0);
 		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop,
-				       0);
+				       -1, 0);
 		break;
 	}
 
@@ -1189,6 +1189,7 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 
 	save_values = ei->route_map_set;
 	ospf_reset_route_map_set_values(&ei->route_map_set);
+	ei->route_map_set.metric = ei->orig_metric;
 
 	saved_tag = ei->tag;
 	/* Resetting with original route tag */
@@ -1343,7 +1344,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 							  p);
 
 		ei = ospf_external_info_add(ospf, rt_type, api.instance, p,
-					    ifindex, nexthop, api.tag);
+					    ifindex, nexthop, api.metric, api.tag);
 		if (ei == NULL) {
 			/* Nothing has changed, so nothing to do; return */
 			return 0;

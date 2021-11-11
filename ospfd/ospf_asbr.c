@@ -109,7 +109,7 @@ int ospf_route_map_set_compare(struct route_map_set_values *values1,
 struct external_info *
 ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 		       struct prefix_ipv4 p, ifindex_t ifindex,
-		       struct in_addr nexthop, route_tag_t tag)
+		       struct in_addr nexthop, uint32_t metric, route_tag_t tag)
 {
 	struct external_info *new;
 	struct route_node *rn;
@@ -143,6 +143,8 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 	new->p = p;
 	new->ifindex = ifindex;
 	new->nexthop = nexthop;
+	new->route_map_set.metric = metric;
+	new->orig_metric = metric;
 	new->tag = tag;
 	new->orig_tag = tag;
 	new->aggr_route = NULL;

@@ -392,7 +392,8 @@ route_set_metric(void *rule, const struct prefix *prefix, void *object)
 	if (!metric->used)
 		return RMAP_OKAY;
 
-	ei->route_map_set.metric = DEFAULT_DEFAULT_METRIC;
+	if (ei->route_map_set.metric < 0)
+		ei->route_map_set.metric = DEFAULT_DEFAULT_METRIC;
 
 	if (metric->type == metric_increment)
 		ei->route_map_set.metric += metric->metric;

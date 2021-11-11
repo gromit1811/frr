@@ -55,6 +55,9 @@ struct external_info {
 #define ROUTEMAP_METRIC(E) (E)->route_map_set.metric
 #define ROUTEMAP_METRIC_TYPE(E) (E)->route_map_set.metric_type
 
+	/* Actual metric received from zebra*/
+	int32_t orig_metric;
+
 	/* Back pointer to summary address */
 	struct ospf_external_aggr_rt *aggr_route;
 
@@ -118,7 +121,7 @@ extern struct external_info *ospf_external_info_add(struct ospf *, uint8_t,
 						    unsigned short,
 						    struct prefix_ipv4,
 						    ifindex_t, struct in_addr,
-						    route_tag_t);
+						    uint32_t, route_tag_t);
 extern void ospf_external_info_delete(struct ospf *, uint8_t, unsigned short,
 				      struct prefix_ipv4);
 extern struct external_info *ospf_external_info_lookup(struct ospf *, uint8_t,
