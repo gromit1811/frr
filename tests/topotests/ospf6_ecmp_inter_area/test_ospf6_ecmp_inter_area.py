@@ -37,8 +37,18 @@ R1 --- R3 ------ R6 ------ R7
 
 We check routes on R1, primarily those towards R7/8. Those to R7 are
 inter-area routes with R5/6 being ABRs, those to R8 are intra-area routes
-and are used for reference. R7/R8 announce one internal and one external
-route each.
+and are used for reference. R7/R8 announce one internal (...:800x:...) and
+one external (...:x:...) route each. R1-R6 only announce internal ones.
+Routes we check nexthops for are (in this order):
+2001:db8:2::/64
+2001:db8:3::/64
+2001:db8:4::/64
+2001:db8:5::/64
+2001:db8:6::/64
+2001:db8:7::/64
+2001:db8:8007::/64
+2001:db8:8008::/64
+2001:db8:8::/64
 
 With all links up, we expect 3 ECMP paths and 3 nexthops on R1 towards each
 of R7/8. Then we bring down the R3-R6 link, causing only 2 remaining
@@ -175,11 +185,11 @@ def test_ecmp_inter_area():
         # being the entry we're looking for.
         return [ri[0]["internalNextHopActiveNum"] for rp, ri in route_prefixes_infos]
 
-    def expect_num_nexthops(router, expected_num_nexthops, count):
+    def expect_num_nexthops(router, expected_num_nexthops, count, stepmsg):
         "Wait until number of nexthops for routes matches expectation"
         logger.info(
-            "waiting for OSPFv3 router '{}' nexthops {}".format(
-                router, expected_num_nexthops
+            "waiting for OSPFv3 router '{}' nexthops {} ({})".format(
+                router, expected_num_nexthops, stepmsg
             )
         )
         test_func = partial(num_nexthops, router)
@@ -188,25 +198,28 @@ def test_ecmp_inter_area():
         )
         assert (
             result == expected_num_nexthops
-        ), "'{}' wrong number of route nexthops".format(router)
+        ), "'{}' wrong number of route nexthops ({})".format(router, stepmsg)
 
     # Check nexthops pre link-down
     # tgen.mininet_cli()
-    expect_num_nexthops("r1", [1, 1, 1, 1, 2, 3, 3, 3, 3], 4)
+    expect_num_nexthops("r1", [1, 1, 1, 1, 2, 3, 3, 3, 3], 4,
+                        "pre link-down")
 
     logger.info("triggering R3-R6 link down")
     tgen.gears["r3"].run("ip link set r3-eth1 down")
 
     # tgen.mininet_cli()
     # Check nexthops post link-down
-    expect_num_nexthops("r1", [1, 1, 1, 1, 1, 2, 2, 2, 2], 8)
+    expect_num_nexthops("r1", [1, 1, 1, 1, 1, 2, 2, 2, 2], 8,
+                        "post R3-R6 link-down")
 
     logger.info("triggering R2-R5 link down")
     tgen.gears["r2"].run("ip link set r2-eth1 down")
 
     # tgen.mininet_cli()
     # Check nexthops post link-down
-    expect_num_nexthops("r1", [1, 1, 1, 1, 1, 1, 1, 1, 1], 8)
+    expect_num_nexthops("r1", [1, 1, 1, 1, 1, 1, 1, 1, 1], 8,
+                        "post R2-R5 link-down")
 
 
 def teardown_module(_mod):
